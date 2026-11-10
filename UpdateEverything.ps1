@@ -83,7 +83,7 @@ param(
     [switch]$SkipStore,
     [switch]$SkipWindowsUpdate,
     [switch]$SkipDrivers,
-    [ValidatePattern('^\d{2}H\d$')][string]$TargetRelease,
+    [ValidatePattern('^(\d{2}H\d)?$')][string]$TargetRelease,
     [switch]$IncludeUnknown,
     [int]$UserTimeoutMinutes = 90,
     [switch]$Reboot,
