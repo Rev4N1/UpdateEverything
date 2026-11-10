@@ -63,13 +63,13 @@
     Do not wait for Enter at the end of the elevated window.
 
 .EXAMPLE
-    .\Update-All.ps1
+    .\UpdateEverything.ps1
 
 .EXAMPLE
-    .\Update-All.ps1 -Exclude 'Silverlight','Apple, Inc.' -Reboot
+    .\UpdateEverything.ps1 -Exclude 'Silverlight','Apple, Inc.' -Reboot
 
 .EXAMPLE
-    .\Update-All.ps1 -TargetRelease 26H2 -SkipUserApps -SkipMachineApps -SkipStore
+    .\UpdateEverything.ps1 -TargetRelease 26H2 -SkipUserApps -SkipMachineApps -SkipStore
 
 .NOTES
     Exit codes: 0 = everything succeeded, 1 = something failed or was partial,
@@ -397,7 +397,7 @@ function Update-WindowsUpdates {
     Write-Log 'Windows Update' Section
     try {
         $session = New-Object -ComObject Microsoft.Update.Session
-        $session.ClientApplicationID = 'Update-All'
+        $session.ClientApplicationID = 'UpdateEverything'
         $searcher = $session.CreateUpdateSearcher()
         $criteria = "IsInstalled=0 and IsHidden=0"
         if ($SkipDrivers) { $criteria += " and Type='Software'" }
@@ -567,7 +567,7 @@ $exitCode          = 0
 $mutex = New-Object System.Threading.Mutex($false, 'Global\Update-All')
 try { $owned = $mutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $owned = $true }
 if (-not $owned) {
-    Write-Log 'Another Update-All run is already in progress. Exiting.' Error
+    Write-Log 'Another UpdateEverything run is already in progress. Exiting.' Error
     if ($Elevated -and -not $NoPause) { Read-Host 'Press Enter to close' | Out-Null }
     exit 1
 }
@@ -579,13 +579,13 @@ try {
     # profile other users cannot read) and to stream their output back. Deleted at the end.
     if (-not $SkipUserApps) {
         $script:WorkDir    = Join-Path $env:SystemRoot ('Temp\UpdateAll_' + [guid]::NewGuid().ToString('N').Substring(0, 8))
-        $script:ScriptCopy = Join-Path $script:WorkDir 'Update-All.ps1'
+        $script:ScriptCopy = Join-Path $script:WorkDir 'UpdateEverything.ps1'
         New-Item -ItemType Directory -Path $script:WorkDir -Force | Out-Null
         & icacls.exe $script:WorkDir /grant '*S-1-5-32-545:(OI)(CI)RX' | Out-Null
         Copy-Item -Path $PSCommandPath -Destination $script:ScriptCopy -Force
     }
 
-    Write-Log "Update-All started as $env:USERDOMAIN\$env:USERNAME on $env:COMPUTERNAME"
+    Write-Log "UpdateEverything started as $env:USERDOMAIN\$env:USERNAME on $env:COMPUTERNAME"
 
     # User apps first: if the Store/winget updates App Installer itself, it happens
     # before the elevated winget run starts, not in the middle of it.
@@ -624,7 +624,7 @@ if ($script:Summary | Where-Object { $_.Status -in 'Failed', 'Partial' }) { $exi
 if ($script:RebootRequired) {
     if ($Reboot) {
         Write-Log 'Reboot required. Restarting in 60 seconds (run "shutdown /a" to cancel)...' Warn
-        shutdown.exe /r /t 60 /c "Update-All: restarting to finish installing updates"
+        shutdown.exe /r /t 60 /c "UpdateEverything: restarting to finish installing updates"
         exit $exitCode
     }
     Write-Log 'A reboot is required to finish installing updates.' Warn

@@ -1,4 +1,4 @@
-# Update-All
+# UpdateEverything
 
 One self-contained PowerShell script that fully updates a Windows PC: per-user apps, Microsoft Store apps, machine-wide apps and Windows Update (including drivers). It doesn't need any PowerShell modules.
 
@@ -23,16 +23,16 @@ If App Installer was never registered for the elevated profile, the script regis
 ## Usage
 
 ```powershell
-Unblock-File .\Update-All.ps1
-.\Update-All.ps1
+Unblock-File .\UpdateEverything.ps1
+.\UpdateEverything.ps1
 ```
 
 ```powershell
 # Skip some Windows updates by title, and reboot automatically if needed
-.\Update-All.ps1 -Exclude 'Silverlight','Apple, Inc.' -Reboot
+.\UpdateEverything.ps1 -Exclude 'Silverlight','Apple, Inc.' -Reboot
 
 # Only Windows Update, temporarily targeting a feature release
-.\Update-All.ps1 -TargetRelease 26H2 -SkipUserApps -SkipMachineApps -SkipStore
+.\UpdateEverything.ps1 -TargetRelease 26H2 -SkipUserApps -SkipMachineApps -SkipStore
 ```
 
 | Parameter | Description |
