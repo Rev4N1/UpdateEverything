@@ -20,6 +20,24 @@ At the end it prints a summary table. If an update needs a restart, it can reboo
 
 If App Installer was never registered for the elevated profile, the script registers it. If that fails too, it runs `winget.exe` straight from the package folder with its VC++ runtime on `PATH`.
 
+## Quick start
+
+Paste this into any PowerShell window. You don't need to open it as admin, because the script asks for elevation itself:
+
+```powershell
+irm https://raw.githubusercontent.com/Rev4N1/UpdateEverything/main/UpdateEverything.ps1 | iex
+```
+
+To pass parameters, use this form instead:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Rev4N1/UpdateEverything/main/UpdateEverything.ps1))) -Reboot
+```
+
+When the script runs from memory, it saves itself to `%TEMP%`, elevates from that file, and deletes the file when it's done. Your window stays open, and `$LASTEXITCODE` holds the result.
+
+> As with any `irm | iex` command, you're running code straight from the internet. Read the script first if you don't trust the source.
+
 ## Usage
 
 ```powershell

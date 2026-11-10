@@ -100,6 +100,7 @@ $script:Summary        = New-Object System.Collections.Generic.List[object]
 $script:WuCodes        = @{ 0 = 'Not started'; 1 = 'In progress'; 2 = 'Succeeded'
                             3 = 'Succeeded with errors'; 4 = 'Failed'; 5 = 'Aborted' }
 $script:WinPs          = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$script:SourceUrl      = 'https://raw.githubusercontent.com/Rev4N1/UpdateEverything/main/UpdateEverything.ps1'
 
 # ===========================================================================
 # Output helpers
@@ -229,18 +230,36 @@ if ($UserPhase) {
 $principal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
 $isAdmin   = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
-if (-not $isAdmin -or $PSVersionTable.PSEdition -eq 'Core') {
+# Run from memory (irm ... | iex, or [scriptblock]::Create): there is no file to
+# elevate or hand to the user tasks, and "exit" would close the caller's window.
+# Save the script to %TEMP%, run it from there, then clean up and "return".
+$fromMemory = -not $PSCommandPath
+
+if ($fromMemory -or -not $isAdmin -or $PSVersionTable.PSEdition -eq 'Core') {
     if ($Elevated -and -not $isAdmin) {
         Write-Error 'Elevation did not produce an administrator session. Aborting.'
         exit 1
     }
-    if (-not $PSCommandPath) {
-        Write-Error 'Save this script as a .ps1 file and run it from the file.'
-        exit 1
+
+    $launchPath = $PSCommandPath
+    if ($fromMemory) {
+        $launchPath = Join-Path $env:TEMP 'UpdateEverything.ps1'
+        $self = "$($MyInvocation.MyCommand.ScriptBlock)"
+        try {
+            # [scriptblock]::Create keeps the full text; under iex it is not available
+            if ($self -notmatch 'function Invoke-UserPhase') { $self = Invoke-RestMethod $script:SourceUrl -UseBasicParsing }
+            Set-Content -Path $launchPath -Value $self -Encoding UTF8 -ErrorAction Stop
+        } catch {
+            Write-Error "Could not save the script to ${launchPath}: $($_.Exception.Message)"
+            return
+        }
     }
 
     $quote = { param($s) "'" + ($s -replace "'", "''") + "'" }
-    $parts = @('&', (& $quote $PSCommandPath), '-Elevated')
+    # Already an admin in Windows PowerShell (only possible from memory): run in this window
+    $inline = $fromMemory -and $isAdmin -and $PSVersionTable.PSEdition -ne 'Core'
+    $parts = @('&', (& $quote $launchPath))
+    if (-not $inline) { $parts += '-Elevated' }
     foreach ($kv in $PSBoundParameters.GetEnumerator()) {
         if ($kv.Key -in 'Elevated', 'UserPhase', 'UserLog') { continue }
         if ($kv.Value -is [switch]) {
@@ -253,15 +272,27 @@ if (-not $isAdmin -or $PSVersionTable.PSEdition -eq 'Core') {
 
     $parts += '; exit $LASTEXITCODE'
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($parts -join ' '))
+    $code = 1
     try {
-        # Wait so the caller gets the elevated run's exit code
-        $proc = Start-Process -FilePath $script:WinPs -Verb RunAs -Wait -PassThru `
-            -ArgumentList "-NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded"
+        if ($inline) {
+            & $script:WinPs -NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded
+            $code = $LASTEXITCODE
+        } else {
+            # Wait so the caller gets the elevated run's exit code
+            $proc = Start-Process -FilePath $script:WinPs -Verb RunAs -Wait -PassThru `
+                -ArgumentList "-NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded"
+            $code = $proc.ExitCode
+        }
     } catch {
         Write-Error "Elevation was cancelled or failed: $($_.Exception.Message)"
-        exit 1
     }
-    exit $proc.ExitCode
+
+    if ($fromMemory) {
+        Remove-Item -Path $launchPath -Force -ErrorAction SilentlyContinue
+        $global:LASTEXITCODE = $code
+        return
+    }
+    exit $code
 }
 
 # ===========================================================================
