@@ -564,7 +564,7 @@ $script:ScriptCopy = $null
 $exitCode          = 0
 
 # One run at a time (a second run would clean up the first one's tasks and files)
-$mutex = New-Object System.Threading.Mutex($false, 'Global\Update-All')
+$mutex = New-Object System.Threading.Mutex($false, 'Global\UpdateEverything')
 try { $owned = $mutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $owned = $true }
 if (-not $owned) {
     Write-Log 'Another UpdateEverything run is already in progress. Exiting.' Error
