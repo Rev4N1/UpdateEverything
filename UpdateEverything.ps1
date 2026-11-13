@@ -42,7 +42,9 @@
     Do not run Windows Update.
 
 .PARAMETER SkipDrivers
-    Windows Update: software updates only, no drivers.
+    Windows Update: software updates only, no drivers. Drivers are also skipped
+    automatically when a policy or the Device installation settings turn off
+    drivers from Windows Update.
 
 .PARAMETER TargetRelease
     Windows Update: temporarily target this feature release (e.g. '26H2') so the
@@ -424,14 +426,50 @@ function Update-StoreApps {
     }
 }
 
+# Settings that say "no drivers from Windows Update". Windows' own update
+# honours them, but a search through the Update Agent API does not reliably, so
+# without this check the script would install drivers a policy blocks.
+function Get-DriverBlockReason {
+    $checks = @(
+        @{ Path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
+           Name = 'ExcludeWUDriversInQualityUpdate'; Value = 1
+           Why  = 'policy "Do not include drivers with Windows Updates"' },
+        @{ Path = 'HKLM:\SOFTWARE\Microsoft\PolicyManager\current\device\Update'
+           Name = 'ExcludeWUDriversInQualityUpdate'; Value = 1
+           Why  = 'MDM policy ExcludeWUDriversInQualityUpdate' },
+        @{ Path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching'
+           Name = 'DontSearchWindowsUpdate'; Value = 1
+           Why  = 'policy "Turn off Windows Update device driver searching"' },
+        @{ Path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching'
+           Name = 'SearchOrderConfig'; Value = 0
+           Why  = 'policy "Specify search order for device driver source locations" (do not search Windows Update)' },
+        @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DriverSearching'
+           Name = 'SearchOrderConfig'; Value = 0
+           Why  = 'Device installation settings: automatic driver downloads are off' }
+    )
+    foreach ($c in $checks) {
+        $v = (Get-ItemProperty -Path $c.Path -Name $c.Name -ErrorAction SilentlyContinue).($c.Name)
+        if ($null -ne $v -and [int]$v -eq $c.Value) { return $c.Why }
+    }
+    return $null
+}
+
 function Update-WindowsUpdates {
     Write-Log 'Windows Update' Section
+    $noDrivers = [bool]$SkipDrivers
+    if (-not $noDrivers) {
+        $why = Get-DriverBlockReason
+        if ($why) {
+            Write-Log "Drivers skipped: $why." Warn
+            $noDrivers = $true
+        }
+    }
     try {
         $session = New-Object -ComObject Microsoft.Update.Session
         $session.ClientApplicationID = 'UpdateEverything'
         $searcher = $session.CreateUpdateSearcher()
         $criteria = "IsInstalled=0 and IsHidden=0"
-        if ($SkipDrivers) { $criteria += " and Type='Software'" }
+        if ($noDrivers) { $criteria += " and Type='Software'" }
         Write-Log 'Searching for updates (this can take a few minutes)...'
         $result = $searcher.Search($criteria)
     } catch {

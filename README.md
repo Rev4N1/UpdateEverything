@@ -60,7 +60,7 @@ Unblock-File .\UpdateEverything.ps1
 | `-SkipMachineApps` | Skip the machine-wide winget upgrade. |
 | `-SkipStore` | Don't trigger the Store update scan. |
 | `-SkipWindowsUpdate` | Skip Windows Update. |
-| `-SkipDrivers` | Windows Update installs software updates only, no drivers. |
+| `-SkipDrivers` | Windows Update installs software updates only, no drivers. This happens automatically when a policy ("Do not include drivers with Windows Updates", "Turn off Windows Update device driver searching", driver search order) or Device installation settings turn off drivers from Windows Update. |
 | `-TargetRelease` | Temporarily set `TargetReleaseVersionInfo` (for example `26H2`) so that an optional or pinned feature update is offered. The previous policy values are restored afterwards. |
 | `-IncludeUnknown` | Let winget upgrade packages whose installed version it can't determine. |
 | `-UserTimeoutMinutes` | Maximum time for each user's app run. Default: 90. |
